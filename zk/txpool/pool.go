@@ -722,6 +722,20 @@ func (p *TxPool) validateTx(txn *types.TxSlot, isLocal bool, stateCache kvcache.
 	}
 
 	isLondon := p.isLondon()
+	// PRISMO: fork-12 batchL2Data has no typed-transaction encoding. cdk-erigon
+	// re-serializes every tx as pseudo-legacy (zk/tx/tx.go TransactionToL2Data);
+	// for a protected typed tx GetDecodedV computes v+27-2*chainId-35, which is
+	// negative for large chain IDs and gets stored as a 32-byte two's complement
+	// where the format declares 1 byte. The resulting blob is undecodable by
+	// cdk-node's sequence-sender (it fatal-loops) and the fork-12 ROM discards
+	// the whole batch as invalidRLP -- proving it as a no-op and forking verified
+	// state away from trusted state. Upstream only gates type 0x2 behind
+	// !isLondon; type 0x1 (EIP-2930) is corrupted identically and is not gated at
+	// all. Reject every non-legacy type unconditionally, independent of London,
+	// so a chainspec change can never silently re-open this.
+	if txn.Type != 0 {
+		return UnsupportedTx
+	}
 	if !isLondon && txn.Type == 0x2 {
 		return UnsupportedTx
 	}

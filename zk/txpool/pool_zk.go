@@ -189,6 +189,17 @@ func (p *TxPool) best(n uint16, txs *types.TxsRlp, tx kv.Tx, onTopOf, availableG
 			continue
 		}
 
+		// PRISMO: mirror of the admission rule in pool.go validateTx -- no
+		// non-legacy tx may ever reach batchL2Data on fork 12. Belt to the
+		// admission braces: anything already resident from an older build, or
+		// injected by another path, is dropped here too.
+		if mt.Tx.Type != 0 {
+			toRemove = append(toRemove, mt)
+			toSkip.Add(mt.Tx.IDHash)
+			log.Info("Removing non-legacy transaction (unsupported on fork 12)", "txID", mt.Tx.IDHash, "type", mt.Tx.Type)
+			continue
+		}
+
 		if !isLondon && mt.Tx.Type == 0x2 {
 			// remove ldn txs when not in london
 			toRemove = append(toRemove, mt)
