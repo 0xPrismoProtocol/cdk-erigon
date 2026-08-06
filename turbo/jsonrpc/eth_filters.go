@@ -144,7 +144,12 @@ func (api *APIImpl) NewHeads(ctx context.Context) (*rpc.Subscription, error) {
 			select {
 			case h, ok := <-headers:
 				if h != nil {
-					err := notifier.Notify(rpcSub.ID, h)
+					// prismo: strip baseFeePerGas from the notification so
+					// subscribers never see EIP-1559 pricing (legacy-only chain).
+					// Copy first — the header is shared with other subscribers.
+					hh := *h
+					hh.BaseFee = nil
+					err := notifier.Notify(rpcSub.ID, &hh)
 					if err != nil {
 						log.Warn("[rpc] error while notifying subscription", "err", err)
 					}

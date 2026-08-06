@@ -34,7 +34,7 @@ func (api *ErigonImpl) GetHeaderByNumber(ctx context.Context, blockNumber rpc.Bl
 		if block == nil {
 			return nil, nil
 		}
-		return block.Header(), nil
+		return stripBaseFee(block.Header()), nil
 	}
 
 	tx, err := api.db.BeginRo(ctx)
@@ -57,7 +57,19 @@ func (api *ErigonImpl) GetHeaderByNumber(ctx context.Context, blockNumber rpc.Bl
 		return nil, fmt.Errorf("block header not found: %d", blockNum)
 	}
 
-	return header, nil
+	return stripBaseFee(header), nil
+}
+
+// prismo: headers served over RPC must not advertise baseFeePerGas (legacy-only
+// chain — see RPCMarshalHeader). Copy before clearing: the header may be shared
+// with the block-reader cache.
+func stripBaseFee(header *types.Header) *types.Header {
+	if header == nil || header.BaseFee == nil {
+		return header
+	}
+	hh := *header
+	hh.BaseFee = nil
+	return &hh
 }
 
 // GetHeaderByHash implements erigon_getHeaderByHash. Returns a block's header given a block's hash.
@@ -76,7 +88,7 @@ func (api *ErigonImpl) GetHeaderByHash(ctx context.Context, hash common.Hash) (*
 		return nil, fmt.Errorf("block header not found: %s", hash.String())
 	}
 
-	return header, nil
+	return stripBaseFee(header), nil
 }
 
 func (api *ErigonImpl) GetBlockByTimestamp(ctx context.Context, timeStamp rpc.Timestamp, fullTx bool) (map[string]interface{}, error) {

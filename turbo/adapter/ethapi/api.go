@@ -291,9 +291,12 @@ func RPCMarshalHeader(head *types.Header) map[string]interface{} {
 		"transactionsRoot": head.TxHash,
 		"receiptsRoot":     head.ReceiptHash,
 	}
-	if head.BaseFee != nil {
-		result["baseFeePerGas"] = (*hexutil.Big)(head.BaseFee)
-	}
+	// prismo: never advertise baseFeePerGas over RPC. Fork-12 batchL2Data has no
+	// typed-transaction encoding, so the txpool rejects every non-legacy tx — but
+	// wallets (ethers, viem, MetaMask) build an EIP-1559 tx whenever a block
+	// carries baseFeePerGas. London stays active in consensus (flipping the
+	// chainspec would change the genesis hash), so hide the field here instead.
+	// The base fee remains in the consensus header; only JSON output changes.
 	if head.WithdrawalsHash != nil {
 		result["withdrawalsRoot"] = head.WithdrawalsHash
 	}
